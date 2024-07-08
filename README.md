@@ -158,7 +158,7 @@ A arquitetura de microsserviços proposta dividirá a aplicação em vários ser
 
 ### Diagrama de Fluxo de Dados
 
-```mermaid
+```
 graph TD;
     Usuario-->Autenticacao;
     Autenticacao-->Usuarios;
