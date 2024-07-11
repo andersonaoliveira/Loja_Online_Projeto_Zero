@@ -1,0 +1,14 @@
+# Ignorar arquivos e pastas de compilação
+/target/
+
+# Ignorar arquivos de log
+*.log
+
+# Ignorar arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Ignorar arquivos de configuração de IDEs
+.idea/
+.vscode/
+*.iml
