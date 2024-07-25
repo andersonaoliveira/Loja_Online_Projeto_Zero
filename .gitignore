@@ -1,6 +1,7 @@
 # Ignorar arquivos e pastas de compilação
 /target/
 Java/auth-service/target/
+Java/product-catalog-service/target/
 
 # Ignorar arquivos de log
 *.log
