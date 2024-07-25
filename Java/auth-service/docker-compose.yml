@@ -1,26 +1,23 @@
 version: '3.8'
 
 services:
-  auth-service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8081:8081"
-    depends_on:
-      - mongodb
-    environment:
-      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/authdb
-    networks:
-      - backend
-
   mongodb:
     image: mongo:latest
+    container_name: mongodb-auth
     ports:
       - "27017:27017"
-    networks:
-      - backend
+    volumes:
+      - mongo-data:/data/db
 
-networks:
-  backend:
-    driver: bridge
+  auth-service:
+    build: .
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-auth:27017/productcatalog
+    depends_on:
+      - mongodb
+
+volumes:
+  mongo-data:
