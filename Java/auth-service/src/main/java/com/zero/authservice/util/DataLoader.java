@@ -1,6 +1,6 @@
-package com.example.authservice.util;
-import com.example.authservice.model.User;
-import com.example.authservice.repository.UserRepository;
+package com.zero.authservice.util;
+import com.zero.authservice.model.User;
+import com.zero.authservice.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;

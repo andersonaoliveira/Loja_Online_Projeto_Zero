@@ -1,4 +1,4 @@
-package com.example.authservice.service;
+package com.zero.authservice.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;

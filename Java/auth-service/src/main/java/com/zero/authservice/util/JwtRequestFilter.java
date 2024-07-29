@@ -1,4 +1,4 @@
-package com.example.authservice.util;
+package com.zero.authservice.util;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

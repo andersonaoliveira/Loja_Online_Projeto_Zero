@@ -1,4 +1,4 @@
-package com.example.authservice.model;
+package com.zero.authservice.model;
 
 public class AuthRequest {
 

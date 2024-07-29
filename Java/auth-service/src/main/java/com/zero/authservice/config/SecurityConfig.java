@@ -1,8 +1,8 @@
-package com.example.authservice.config;
+package com.zero.authservice.config;
 
-import com.example.authservice.service.MyUserDetailsService;
-import com.example.authservice.util.JwtRequestFilter;
-import com.example.authservice.util.JwtAuthenticationEntryPoint;
+import com.zero.authservice.service.MyUserDetailsService;
+import com.zero.authservice.util.JwtRequestFilter;
+import com.zero.authservice.util.JwtAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

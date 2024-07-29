@@ -15,11 +15,6 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-    @GetMapping("/test")
-    public ResponseEntity<String> test() {
-        return ResponseEntity.ok("Service is up and running!");
-    }
-
     @GetMapping("/{userId}/orders")
     public ResponseEntity<List<Order>> getOrders(@PathVariable String userId) {
         return ResponseEntity.ok(orderService.getOrdersByUserId(userId));

@@ -1,14 +1,14 @@
-package com.example.authservice.controller;
+package com.zero.authservice.controller;
 
 import java.util.Map;
 import java.util.Optional;
-import com.example.authservice.model.AuthRequest;
-import com.example.authservice.model.JwtResponse;
-import com.example.authservice.model.User;
-import com.example.authservice.repository.UserRepository;
-import com.example.authservice.service.MyUserDetailsService;
-import com.example.authservice.service.EmailService;
-import com.example.authservice.util.JwtUtil;
+import com.zero.authservice.model.AuthRequest;
+import com.zero.authservice.model.JwtResponse;
+import com.zero.authservice.model.User;
+import com.zero.authservice.repository.UserRepository;
+import com.zero.authservice.service.MyUserDetailsService;
+import com.zero.authservice.service.EmailService;
+import com.zero.authservice.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

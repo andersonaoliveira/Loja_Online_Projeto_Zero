@@ -1,4 +1,4 @@
-package com.example.authservice.util;
+package com.zero.authservice.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
