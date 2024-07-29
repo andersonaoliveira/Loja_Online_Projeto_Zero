@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb-checkout
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  checkout-service:
+    build: .
+    container_name: checkout-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-checkout:27017/zero
+    depends_on:
+      - mongodb
+
+volumes:
+  mongo-data:
