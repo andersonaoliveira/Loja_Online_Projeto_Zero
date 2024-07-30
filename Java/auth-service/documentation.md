@@ -1,189 +1,422 @@
 ### Documentação do auth-service
 
-#### Visão Geral
-O `auth-service` é um microsserviço responsável por gerenciar a autenticação e o gerenciamento de usuários dentro do projeto da loja online. Ele utiliza Spring Boot, MongoDB, JWT para autenticação e integra-se com serviços de email para envio de notificações e links de redefinição de senha.
+# Documentação do Serviço de Autenticação
 
-#### Estrutura do Projeto
-O projeto é composto pelos seguintes componentes principais:
-- **Arquivos de Configuração**: `pom.xml`, `Dockerfile`, `docker-compose.yml`, `application.properties`
-- **Classes de Modelo**: Representam estruturas de dados (`User`, `JwtResponse`)
-- **Interface de Repositório**: `UserRepository` para interações com o banco de dados
-- **Classes de Serviço**: `EmailService`, `MyUserDetailsService` para lógica de negócios
-- **Classes Utilitárias**: `DataLoader`, `JwtAuthenticationEntryPoint`, `JwtRequestFilter`, `JwtUtil` para funções auxiliares e configurações
-- **Classe Principal da Aplicação**: `AuthServiceApplication`
+## Visão Geral
 
-#### Arquivos de Configuração
+Este serviço de autenticação é uma API RESTful construída com Spring Boot que fornece funcionalidades de autenticação e autorização usando JWT (JSON Web Tokens). Ele utiliza o MongoDB como banco de dados e inclui suporte para envio de e-mails.
 
-##### pom.xml
-Define as dependências do projeto e as configurações de build:
-- **Starters do Spring Boot**: `spring-boot-starter-web`, `spring-boot-starter-data-mongodb`, `spring-boot-starter-security`
-- **Biblioteca JWT**: `jjwt`
-- **Serviço de Email**: `spring-boot-starter-mail`
-- **Outras Dependências**: `java-dotenv`, `lombok`, `jaxb-api`, `spring-boot-starter-test`
+## Estrutura do Projeto
 
-##### Dockerfile
-Configura a imagem Docker para o serviço:
-- Utiliza `eclipse-temurin:17-jre-alpine` como imagem base.
-- Copia o arquivo JAR para dentro do contêiner.
-- Expõe a porta 8081.
-- Define o ponto de entrada para rodar o arquivo JAR.
+A estrutura do projeto é organizada conforme abaixo:
 
-##### docker-compose.yml
-Define a configuração do Docker Compose para o serviço:
-- Configura o serviço `mongodb`.
-- Configura o `auth-service` para depender do `mongodb`.
-- Define variáveis de ambiente para conexão com o MongoDB.
+```
+auth-service/
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── com/
+│   │   │       └── zero/
+│   │   │           └── authservice/
+│   │   │               ├── AuthServiceApplication.java
+│   │   │               ├── config/
+│   │   │               ├── controller/
+│   │   │               ├── model/
+│   │   │               ├── repository/
+│   │   │               ├── service/
+│   │   │               └── util/
+│   │   └── resources/
+│   │       ├── application.properties
+│   └── test/
+├── Dockerfile
+├── docker-compose.yml
+└── pom.xml
+```
 
-##### application.properties
-Contém propriedades específicas da aplicação:
-- URI de conexão com o MongoDB.
-- Configuração do JWT.
-- Configuração do serviço de email.
-- Configuração da porta do servidor.
+## Configuração
 
-#### Classes de Modelo
+### `pom.xml`
 
-##### JwtResponse.java
-Representa a estrutura de resposta do JWT.
+Este arquivo é o descritor do projeto Maven e inclui todas as dependências necessárias, como Spring Boot, Spring Security, Spring Data MongoDB, JWT, Lombok, e outras.
+
+### `application.properties`
+
+Arquivo de configuração para o Spring Boot. Contém configurações para o MongoDB, JWT, servidor SMTP para envio de e-mails, entre outras.
+
+```properties
+spring.data.mongodb.uri=mongodb://localhost:27017/authdb
+server.port=8081
+jwt.secret=408798
+jwt.expiration.ms=3600000
+spring.mail.host=smtp.mail.yahoo.com
+spring.mail.port=587
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.smtp.starttls.required=true
+spring.mail.properties.mail.smtp.ssl.trust=smtp.mail.yahoo.com
+```
+
+## Componentes Principais
+
+### Classe Principal
+
+`AuthServiceApplication.java`
 ```java
-public class JwtResponse {
-    private final String jwt;
+package com.zero.authservice;
 
-    public JwtResponse(String jwt) {
-        this.jwt = jwt;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class AuthServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(AuthServiceApplication.class, args);
     }
-
-    public String getJwt() {
-        return jwt;
-    }
 }
 ```
 
-##### User.java
-Representa a entidade do usuário armazenada no MongoDB.
+### Configuração de Segurança
+
+`SecurityConfig.java`
 ```java
-@Document(collection = "users")
-@Data
-public class User {
-    @Id
-    private String id;
-    private String username;
-    private String password;
-    private String email;
-}
-```
+package com.zero.authservice.config;
 
-#### Interface de Repositório
+import com.zero.authservice.service.MyUserDetailsService;
+import com.zero.authservice.util.JwtRequestFilter;
+import com.zero.authservice.util.JwtAuthenticationEntryPoint;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.builders.WebSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-##### UserRepository.java
-Define a interface do repositório para a entidade `User`.
-```java
-public interface UserRepository extends MongoRepository<User, String> {
-    Optional<User> findByUsername(String username);
-    Optional<User> findByEmail(String email);
-}
-```
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
-#### Classes de Serviço
-
-##### EmailService.java
-Gerencia funcionalidades de envio de emails.
-```java
-@Service
-public class EmailService {
     @Autowired
-    private JavaMailSender emailSender;
+    private MyUserDetailsService userDetailsService;
 
-    public void sendEmail(String to, String subject, String text) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(text);
-        emailSender.send(message);
+    @Autowired
+    private JwtRequestFilter jwtRequestFilter;
+
+    @Autowired
+    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
     }
 
-    public void sendPasswordResetToken(String email, String token) {
-        String subject = "Password Reset Request";
-        String text = "Para redefinir sua senha, clique no link abaixo:\n" + "http://seudominio.com/reset-password?token=" + token;
-        sendEmail(email, subject, text);
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Override
+    @Bean
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean();
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.csrf().disable()
+                .authorizeRequests()
+                .antMatchers("/auth/authenticate", "/auth/register").permitAll()
+                .anyRequest().authenticated()
+                .and()
+                .exceptionHandling().authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                .and()
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+
+        http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+    }
+
+    @Override
+    public void configure(WebSecurity web) throws Exception {
+        web.ignoring().antMatchers("/h2-console/**", "/v2/api-docs", "/configuration/ui",
+                "/swagger-resources", "/configuration/security", "/swagger-ui.html", "/webjars/**");
     }
 }
 ```
 
-##### MyUserDetailsService.java
-Implementa `UserDetailsService` para carregar dados específicos do usuário.
+### Controlador de Autenticação
+
+`AuthController.java`
 ```java
+package com.zero.authservice.controller;
+
+import java.util.Map;
+import java.util.Optional;
+import com.zero.authservice.model.AuthRequest;
+import com.zero.authservice.model.JwtResponse;
+import com.zero.authservice.model.User;
+import com.zero.authservice.repository.UserRepository;
+import com.zero.authservice.service.MyUserDetailsService;
+import com.zero.authservice.service.EmailService;
+import com.zero.authservice.util.JwtUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/auth")
+public class AuthController {
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private MyUserDetailsService userDetailsService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    
+    @Autowired
+    private EmailService emailService;
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody User user) {
+        Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
+        if (existingUser.isPresent()) {
+            return ResponseEntity.badRequest().body("Username already exists");
+        }
+
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        userRepository.save(user);
+
+        final UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
+        final String jwt = jwtUtil.generateToken(userDetails);
+
+        return ResponseEntity.ok(new JwtResponse(jwt));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> createAuthenticationToken(@RequestBody AuthRequest authRequest) {
+        try {
+            authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(authRequest.getUsername(), authRequest.getPassword())
+            );
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Incorrect username or password");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred during authentication");
+        }
+
+        final UserDetails userDetails = userDetailsService.loadUserByUsername(authRequest.getUsername());
+        final String jwt = jwtUtil.generateToken(userDetails);
+
+        return ResponseEntity.ok(new JwtResponse(jwt));
+    }
+
+    @GetMapping("/validate")
+    public ResponseEntity<Boolean> validateToken(@RequestParam String token) {
+        try {
+            String username = jwtUtil.extractUsername(token);
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            boolean isValid = jwtUtil.validateToken(token, userDetails);
+            return ResponseEntity.ok(isValid);
+        } catch (Exception e) {
+            return ResponseEntity.ok(false);
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> emailRequest) {
+        String email = emailRequest.get("email");
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if (!userOptional.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        }
+
+        User user = userOptional.get();
+        String token = jwtUtil.generateToken(userDetailsService.loadUserByUsername(user.getUsername()));
+
+        return ResponseEntity.ok("Password reset email sent");
+    }
+
+    @GetMapping("/validate-reset-token")
+    public ResponseEntity<Boolean> validateResetToken(@RequestParam String token) {
+        try {
+            String username = jwtUtil.extractUsername(token);
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            boolean isValid = jwtUtil.validateToken(token, userDetails);
+            return ResponseEntity.ok(isValid);
+        } catch (Exception e) {
+            return ResponseEntity.ok(false);
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> resetRequest) {
+        String token = resetRequest.get("token");
+        String newPassword = resetRequest.get("password");
+
+        String username = jwtUtil.extractUsername(token);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+        if (!jwtUtil.validateToken(token, userDetails)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
+        }
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+
+
+        return ResponseEntity.ok("Password reset successful");
+    }
+}
+```
+
+### Serviço de Usuário
+
+`MyUserDetailsService.java`
+```java
+package com.zero.authservice.service;
+
+import java.util.Optional;
+import com.zero.authservice.model.User;
+import com.zero.authservice.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
 @Service
 public class MyUserDetailsService implements UserDetailsService {
+
     @Autowired
     private UserRepository userRepository;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username).orElseThrow(() ->
-            new UsernameNotFoundException("User not found with username: " + username));
+        Optional<User> userOptional = userRepository.findByUsername(username);
+        if (!userOptional.isPresent()) {
+            throw new UsernameNotFoundException("User not found with username: " + username);
+        }
+
+        User user = userOptional.get();
         return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), new ArrayList<>());
     }
 }
 ```
 
-#### Classes Utilitárias
+### Utilitário de JWT
 
-##### DataLoader.java
-Inicializa o banco de dados com dados de teste.
+`JwtUtil.java`
 ```java
+package com.zero.authservice.util;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
+
 @Component
-public class DataLoader implements CommandLineRunner {
-    @Autowired
-    private UserRepository userRepository;
+public class JwtUtil {
 
-    @Override
-    public void run(String... args) throws Exception {
-        userRepository.deleteAll();
+    @Value("${jwt.secret}")
+    private String secret;
 
-        User user1 = new User();
-        user1.setUsername("user1");
-        user1.setPassword("password1");
-        user1.setEmail("user1@example.com");
+    @Value("${jwt.expiration.ms}")
+    private int jwtExpirationMs;
 
-        User user2 = new User();
-        user2.setUsername("user2");
-        user2.setPassword("password2");
-        user2.setEmail("user2@example.com");
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
 
-        userRepository.save(user1);
-        userRepository.save(user2);
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
 
-        System.out.println("Test data inserted successfully!");
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
+    }
+
+    private Boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    public String generateToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        return createToken(claims, userDetails.getUsername());
+    }
+
+    private String createToken(Map<String, Object> claims, String subject) {
+        return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
+                .signWith(SignatureAlgorithm.HS256, secret).compact();
+    }
+
+    public Boolean validateToken(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 }
 ```
 
-##### JwtAuthenticationEntryPoint.java
-Lida com tentativas de acesso não autorizadas.
-```java
-@Component
-public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
-    @Override
-    public void commence(HttpServletRequest request,
-                         HttpServletResponse response,
-                         AuthenticationException authException) throws IOException, ServletException {
-        if (request.getRequestURI().contains("/auth/login")) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: Invalid username or password");
-        } else {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Não autorizado");
-        }
-    }
-}
-```
+### Filtro de JWT
 
-##### JwtRequestFilter.java
-Filtra solicitações recebidas para validar tokens JWT.
+`JwtRequestFilter.java`
 ```java
+package com.zero.authservice.util;
+
+import java.io.IOException;
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import com.zero.authservice.service.MyUserDetailsService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
+
     @Autowired
-    private UserDetailsService userDetailsService;
+    private MyUserDetailsService userDetailsService;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -199,20 +432,19 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
             jwt = authorizationHeader.substring(7);
-            try {
-                username = jwtUtil.extractUsername(jwt);
-            } catch (ExpiredJwtException | UnsupportedJwtException | MalformedJwtException | SignatureException | IllegalArgumentException e) {
-                // Handle exceptions if needed
-            }
+            username = jwtUtil.extractUsername(jwt);
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 
             if (jwtUtil.validateToken(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities());
+                usernamePasswordAuthenticationToken
+                        .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
             }
         }
@@ -221,73 +453,77 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 }
 ```
 
-##### JwtUtil.java
-Fornece funções utilitárias para geração e validação de tokens JWT.
+### Envio de E-mails
+
+`EmailService.java`
 ```java
-@Component
-public class JwtUtil {
-    @Value("${jwt.secret}")
-    private String secret;
+package com.zero.authservice.service;
 
-    @Value("${jwt.expiration.ms}")
-    private Long expirationMs;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.stereotype.Service;
 
-    public String generateToken(UserDetails userDetails) {
-        Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, userDetails.getUsername());
-    }
+@Service
+public class EmailService {
 
-    private String createToken(Map<String, Object> claims, String subject) {
-        Date now = new Date();
-        Date validity = new Date(now.getTime() + expirationMs);
+    @Autowired
+    private JavaMailSender emailSender;
 
-        return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(subject)
-                .setIssuedAt(now)
-                .setExpiration(validity)
-                .signWith(SignatureAlgorithm.HS256, secret)
-                .compact();
-    }
-
-    public Boolean validateToken(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
-    }
-
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
-    private Boolean isTokenExpired(String token) {
-        final Date expiration = extractExpiration(token);
-        return expiration.before(new Date());
-    }
-
-    private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
-    }
-
-    private Claims extractAllClaims(String token) {
-        return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
+    public void sendSimpleMessage(String to, String subject, String text) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(text);
+        emailSender.send(message);
     }
 }
 ```
 
-#### Classe Principal da Aplicação
+## Execução
 
-##### AuthServiceApplication.java
-O ponto de entrada para a aplicação Spring Boot.
-```java
-@SpringBootApplication
-public class AuthServiceApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(AuthServiceApplication.class, args);
-    }
-}
-```
+### Docker
+
+Para executar a aplicação usando Docker:
+
+1. **Construir a Imagem Docker**:
+    ```bash
+    docker build -t auth-service .
+    ```
+
+2. **Iniciar os Serviços com Docker Compose**:
+    ```bash
+    docker-compose up
+    ```
+
+### Endpoints
+
+- **Registrar Usuário**:
+    ```http
+    POST /auth/register
+    ```
+
+- **Login**:
+    ```http
+    POST /auth/login
+    ```
+
+- **Validar Token**:
+    ```http
+    GET /auth/validate
+    ```
+
+- **Esqueci a Senha**:
+    ```http
+    POST /auth/forgot-password
+    ```
+
+- **Validar Token de Redefinição de Senha**:
+    ```http
+    GET /auth/validate-reset-token
+    ```
+
+- **Redefinir Senha**:
+    ```http
+    POST /auth/reset-password
+    ```

@@ -4,6 +4,7 @@ Java/auth-service/target/
 Java/cart-service/target/
 Java/checkout-service/target/
 Java/product-catalog-service/target/
+Java/user-service/target/
 
 # Ignorar arquivos de log
 *.log
